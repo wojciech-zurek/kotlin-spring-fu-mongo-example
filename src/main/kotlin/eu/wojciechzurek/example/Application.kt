@@ -4,7 +4,10 @@ import org.springframework.beans.factory.InitializingBean
 import org.springframework.beans.factory.support.DefaultListableBeanFactory
 import org.springframework.core.env.get
 import org.springframework.data.annotation.Id
-import org.springframework.data.mongodb.core.*
+import org.springframework.data.mongodb.core.ReactiveMongoTemplate
+import org.springframework.data.mongodb.core.dropCollection
+import org.springframework.data.mongodb.core.findAll
+import org.springframework.data.mongodb.core.findById
 import org.springframework.fu.application
 import org.springframework.fu.module.data.mongodb.mongodb
 import org.springframework.fu.module.jackson.jackson
@@ -17,6 +20,7 @@ import org.springframework.fu.module.webflux.webflux
 import org.springframework.fu.ref
 import org.springframework.http.MediaType
 import org.springframework.web.reactive.function.server.ServerRequest
+import org.springframework.web.reactive.function.server.ServerResponse.notFound
 import org.springframework.web.reactive.function.server.body
 import org.springframework.web.reactive.function.server.bodyToMono
 import reactor.core.publisher.Flux
@@ -67,13 +71,17 @@ val app = application {
 fun routes() = routes {
     val simpleHandler = ref<SimpleHandler>()
     val userHandler = ref<UserHandler>()
+
     GET("/", ref = simpleHandler::main)
     GET("/hello", ref = simpleHandler::hello)
     GET("/hello-event", ref = simpleHandler::helloEvent)
     GET("/date", ref = simpleHandler::date)
+
     GET("/api/user", userHandler::findAll)
+    POST("/api/user", userHandler::new)
     GET("/api/user/{id}", userHandler::findById)
-    POST("/api/user", userHandler::save)
+    PUT("/api/user/{id}", userHandler::update)
+    DELETE("/api/user/{id}", userHandler::delete)
 }
 
 class InitRunner(private val userRepository: UserRepository) : InitializingBean {
@@ -101,17 +109,46 @@ class SimpleHandler {
 class UserHandler(private val userRepository: UserRepository) {
     fun findAll(request: ServerRequest) = handler { ok().body(userRepository.findAll()) }
 
-    fun findById(request: ServerRequest) = handler { ok().body(userRepository.findById(request.pathVariable("id"))) }
+    fun findById(request: ServerRequest) = handler {
+        userRepository
+                .findById(request.pathVariable("id"))
+                .flatMap { ok().syncBody(it) }
+    }
+            .switchIfEmpty(notFound().build())
 
-    fun save(request: ServerRequest) = handler {
+    fun new(request: ServerRequest) = handler {
         request
-                .bodyToMono<User>()
+                .bodyToMono<UserRequest>()
+                .map { User(login = it.login, age = it.age) }
                 .flatMap { userRepository.save(it) }
                 .flatMap { created(URI.create("/api/user/${it.id}")).syncBody(it) }
 
     }
+
+    fun update(request: ServerRequest) = handler {
+
+        request
+                .bodyToMono<UserRequest>()
+                .zipWith(userRepository.findById(request.pathVariable("id")))
+                .map { User(it.t2.id, it.t1.login, it.t1.age) }
+                .flatMap { userRepository.save(it) }
+                .flatMap { ok().syncBody(it) }
+                .switchIfEmpty(notFound().build())
+    }
+
+    fun delete(request: ServerRequest) = handler {
+        userRepository
+                .findById(request.pathVariable("id"))
+                .flatMap { userRepository.delete(it).then(noContent().build()) }
+                .switchIfEmpty(notFound().build())
+    }
 }
 
+
+data class UserRequest(
+        val login: String,
+        val age: Int
+)
 
 data class User(
         @Id val id: String? = null,
@@ -126,9 +163,9 @@ class UserRepository(private val reactiveMongoTemplate: ReactiveMongoTemplate) {
         reactiveMongoTemplate
                 .dropCollection<User>()
                 .thenMany(Flux.just(
-                        User(id = "5b24f75e5a86a170de98c1e7", login = "test", age = 10),
-                        User(login = "ala", age = 18),
-                        User(login = "admin", age = 60)
+                        User("5b24f75e5a86a170de98c1e7", "test", 10),
+                        User("5b2558319be7a1320e574b1d", "ala", 18),
+                        User("5b255fe19be7a138f539c02c", "admin", 60)
                 ))
                 .flatMap {
                     reactiveMongoTemplate.save(it)
@@ -144,4 +181,6 @@ class UserRepository(private val reactiveMongoTemplate: ReactiveMongoTemplate) {
     fun findById(id: String) = reactiveMongoTemplate.findById<User>(id)
 
     fun save(user: User) = reactiveMongoTemplate.save(user)
+
+    fun delete(user: User) = reactiveMongoTemplate.remove(user)
 }

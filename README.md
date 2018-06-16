@@ -15,9 +15,12 @@ Server: [http://localhost:8080](http://localhost:8080)
     GET("/hello", ref = simpleHandler::hello)
     GET("/hello-event", ref = simpleHandler::helloEvent)
     GET("/date", ref = simpleHandler::date)
+
     GET("/api/user", userHandler::findAll)
+    POST("/api/user", userHandler::new)
     GET("/api/user/{id}", userHandler::findById)
-    POST("/api/user", userHandler::save)
+    PUT("/api/user/{id}", userHandler::update)
+    DELETE("/api/user/{id}", userHandler::delete)
 ```
 
 ## Download

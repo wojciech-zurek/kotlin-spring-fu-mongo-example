@@ -108,9 +108,29 @@ class IntegrationApplicationTest {
     }
 
     @Test
+    fun `Update one user endpoint`() {
+
+        val userRequest = UserRequest(login = "update-login", age = 40)
+
+        val result = client
+                .put()
+                .uri("/api/user/5b2558319be7a1320e574b1d")
+                .syncBody(userRequest)
+                .exchange()
+                .expectStatus().is2xxSuccessful
+                .returnResult(User::class.java)
+
+        StepVerifier
+                .create(result.responseBody)
+                .expectNextMatches { it.login == userRequest.login && it.age == userRequest.age }
+                .thenCancel()
+                .verify()
+    }
+
+    @Test
     fun `Post new user endpoint`() {
 
-        val user = User(login = "super-test", age = 99)
+        val user = UserRequest(login = "super-test", age = 99)
 
         val result = client
                 .post()
@@ -127,6 +147,17 @@ class IntegrationApplicationTest {
                 .expectNextMatches { it.login == user.login && it.age == user.age }
                 .thenCancel()
                 .verify()
+    }
+
+    @Test
+    fun `Deleter one user endpoint`() {
+        client
+                .delete()
+                .uri("/api/user/5b255fe19be7a138f539c02c")
+                .exchange()
+                .expectStatus().isNoContent
+                .expectBody().isEmpty
+
     }
 
     @AfterAll
