@@ -6,6 +6,20 @@ More info: [https://github.com/spring-projects/spring-fu](https://github.com/spr
 
 [![Build Status](https://travis-ci.org/wojciech-zurek/kotlin-spring-fu-mongo-example.svg?branch=master)](https://travis-ci.org/wojciech-zurek/kotlin-spring-fu-mongo-example)
 
+## Endpoints
+
+Server: [http://localhost:8080](http://localhost:8080)
+
+```kotlin
+    GET("/", ref = simpleHandler::main)
+    GET("/hello", ref = simpleHandler::hello)
+    GET("/hello-event", ref = simpleHandler::helloEvent)
+    GET("/date", ref = simpleHandler::date)
+    GET("/api/user", userHandler::findAll)
+    GET("/api/user/{id}", userHandler::findById)
+    POST("/api/user", userHandler::save)
+```
+
 ## Download
 
 ```bash

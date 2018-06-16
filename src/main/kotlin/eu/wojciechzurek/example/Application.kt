@@ -85,7 +85,7 @@ class SimpleHandler {
 
     fun hello(request: ServerRequest) = handler { ok().contentType(MediaType.TEXT_PLAIN).syncBody("Hello") }
 
-    fun helloEvent(request: ServerRequest) = handler { ok().contentType(MediaType.TEXT_EVENT_STREAM).body(Mono.just("Hello Mono")) }
+    fun helloEvent(request: ServerRequest) = handler { ok().contentType(MediaType.TEXT_EVENT_STREAM).body(Mono.just("Hello Mono Event")) }
 
     fun date(request: ServerRequest) = handler { ok().contentType(MediaType.TEXT_EVENT_STREAM).body(fluxSink()) }
 

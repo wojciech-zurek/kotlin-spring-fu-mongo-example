@@ -57,7 +57,7 @@ class IntegrationApplicationTest {
 
         StepVerifier
                 .create(result.responseBody)
-                .expectNext("Hello Mono")
+                .expectNext("Hello Mono Event")
                 .thenCancel()
                 .verify()
     }
