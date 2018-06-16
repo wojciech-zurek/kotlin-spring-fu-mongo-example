@@ -69,7 +69,7 @@ fun routes() = routes {
     val userHandler = ref<UserHandler>()
     GET("/", ref = simpleHandler::main)
     GET("/hello", ref = simpleHandler::hello)
-    GET("/hello-mono", ref = simpleHandler::helloMono)
+    GET("/hello-event", ref = simpleHandler::helloEvent)
     GET("/date", ref = simpleHandler::date)
     GET("/api/user", userHandler::findAll)
     GET("/api/user/{id}", userHandler::findById)
@@ -85,7 +85,7 @@ class SimpleHandler {
 
     fun hello(request: ServerRequest) = handler { ok().contentType(MediaType.TEXT_PLAIN).syncBody("Hello") }
 
-    fun helloMono(request: ServerRequest) = handler { ok().contentType(MediaType.TEXT_EVENT_STREAM).body(Mono.just("Hello Mono")) }
+    fun helloEvent(request: ServerRequest) = handler { ok().contentType(MediaType.TEXT_EVENT_STREAM).body(Mono.just("Hello Mono")) }
 
     fun date(request: ServerRequest) = handler { ok().contentType(MediaType.TEXT_EVENT_STREAM).body(fluxSink()) }
 
@@ -126,7 +126,7 @@ class UserRepository(private val reactiveMongoTemplate: ReactiveMongoTemplate) {
         reactiveMongoTemplate
                 .dropCollection<User>()
                 .thenMany(Flux.just(
-                        User(login = "test", age = 10),
+                        User(id = "5b24f75e5a86a170de98c1e7", login = "test", age = 10),
                         User(login = "ala", age = 18),
                         User(login = "admin", age = 60)
                 ))

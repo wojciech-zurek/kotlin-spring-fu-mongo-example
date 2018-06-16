@@ -1,0 +1,6 @@
+language: java
+jdk:
+ - oraclejdk8
+services:
+ - mongodb
+script: sh gradlew cleanTest check
