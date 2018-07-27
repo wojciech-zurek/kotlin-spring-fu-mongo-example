@@ -3,11 +3,11 @@ import org.jetbrains.kotlin.gradle.dsl.Coroutines
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 val coroutinesVersion = "0.22.5"
-val kotlinVersion = "1.2.50"
+val kotlinVersion = "1.2.51"
 val reactorVersion = "Californium-BUILD-SNAPSHOT"
 val springVersion = "5.1.0.BUILD-SNAPSHOT"
 val springBootVersion = "2.0.2.RELEASE"
-val springFuVersion = "1.0.0.BUILD-SNAPSHOT"
+val springFuVersion = "0.0.1.BUILD-SNAPSHOT"
 
 repositories {
     mavenCentral()
@@ -48,10 +48,12 @@ tasks.withType<Test> {
 
 dependencies {
     implementation("org.springframework.fu:spring-fu:$springFuVersion")
-    implementation("org.springframework.fu.module:spring-fu-jackson:$springFuVersion")
+
     implementation("org.springframework.fu.module:spring-fu-logging:$springFuVersion")
+    implementation("org.springframework.fu.module:spring-fu-logging-logback:$springFuVersion")
     implementation("org.springframework.fu.module:spring-fu-mongodb:$springFuVersion")
-    implementation("org.springframework.fu.module:spring-fu-mustache:$springFuVersion")
+    implementation("org.springframework.fu.module:spring-fu-webflux-jackson:$springFuVersion")
+    implementation("org.springframework.fu.module:spring-fu-webflux-mustache:$springFuVersion")
     implementation("org.springframework.fu.module:spring-fu-webflux-netty:$springFuVersion")
 
     testImplementation("org.springframework.fu.module:spring-fu-test:$springFuVersion")
@@ -70,3 +72,5 @@ dependencyManagement {
         dependency("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:$coroutinesVersion")
     }
 }
+
+configurations.all { exclude(module = "slf4j-simple") }

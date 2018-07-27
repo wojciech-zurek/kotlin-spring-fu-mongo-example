@@ -10,19 +10,24 @@ import org.springframework.data.mongodb.core.findAll
 import org.springframework.data.mongodb.core.findById
 import org.springframework.fu.application
 import org.springframework.fu.module.data.mongodb.mongodb
-import org.springframework.fu.module.jackson.jackson
-import org.springframework.fu.module.logging.*
+import org.springframework.fu.module.logging.LogLevel
+import org.springframework.fu.module.logging.level
+import org.springframework.fu.module.logging.logback.consoleAppender
+import org.springframework.fu.module.logging.logback.debug
+import org.springframework.fu.module.logging.logback.logback
+import org.springframework.fu.module.logging.logback.rollingFileAppender
+import org.springframework.fu.module.logging.logging
 import org.springframework.fu.module.mustache.mustache
+import org.springframework.fu.module.webflux.jackson.jackson
 import org.springframework.fu.module.webflux.netty.netty
-import org.springframework.fu.module.webflux.routes
-import org.springframework.fu.module.webflux.server.handler
 import org.springframework.fu.module.webflux.webflux
 import org.springframework.fu.ref
 import org.springframework.http.MediaType
 import org.springframework.web.reactive.function.server.ServerRequest
-import org.springframework.web.reactive.function.server.ServerResponse.notFound
+import org.springframework.web.reactive.function.server.ServerResponse.*
 import org.springframework.web.reactive.function.server.body
 import org.springframework.web.reactive.function.server.bodyToMono
+import org.springframework.web.reactive.function.server.router
 import reactor.core.publisher.Flux
 import reactor.core.publisher.FluxSink
 import reactor.core.publisher.Mono
@@ -41,7 +46,7 @@ val app = application {
     bean<UserHandler>()
     bean<InitRunner>()
 
-//    listener<ContextRefreshedEvent> {
+//    listener<ContextStartedEvent> {
 //        ref<UserRepository>().init()
 //    }
 
@@ -61,21 +66,19 @@ val app = application {
         server(netty(PORT)) {
             mustache()
             codecs { jackson() }
-            routes(ref = ::routes)
+            include { routes(ref(), ref()) }
         }
     }
 
     mongodb(env["MONGO_DB_URI"] ?: MONGO_DB_URI)
 }
 
-fun routes() = routes {
-    val simpleHandler = ref<SimpleHandler>()
-    val userHandler = ref<UserHandler>()
+fun routes(simpleHandler: SimpleHandler, userHandler: UserHandler) = router {
 
-    GET("/", ref = simpleHandler::main)
-    GET("/hello", ref = simpleHandler::hello)
-    GET("/hello-event", ref = simpleHandler::helloEvent)
-    GET("/date", ref = simpleHandler::date)
+    GET("/", simpleHandler::main)
+    GET("/hello", simpleHandler::hello)
+    GET("/hello-event", simpleHandler::helloEvent)
+    GET("/date", simpleHandler::date)
 
     GET("/api/user", userHandler::findAll)
     POST("/api/user", userHandler::new)
@@ -89,13 +92,13 @@ class InitRunner(private val userRepository: UserRepository) : InitializingBean 
 }
 
 class SimpleHandler {
-    fun main(request: ServerRequest) = handler { ok().render("index") }
+    fun main(request: ServerRequest) = ok().render("index")
 
-    fun hello(request: ServerRequest) = handler { ok().contentType(MediaType.TEXT_PLAIN).syncBody("Hello") }
+    fun hello(request: ServerRequest) = ok().contentType(MediaType.TEXT_PLAIN).syncBody("Hello")
 
-    fun helloEvent(request: ServerRequest) = handler { ok().contentType(MediaType.TEXT_EVENT_STREAM).body(Mono.just("Hello Mono Event")) }
+    fun helloEvent(request: ServerRequest) = ok().contentType(MediaType.TEXT_EVENT_STREAM).body(Mono.just("Hello Mono Event"))
 
-    fun date(request: ServerRequest) = handler { ok().contentType(MediaType.TEXT_EVENT_STREAM).body(fluxSink()) }
+    fun date(request: ServerRequest) = ok().contentType(MediaType.TEXT_EVENT_STREAM).body(fluxSink())
 
     private fun fluxSink() = Flux.create { sink: FluxSink<Long> ->
         repeat(5) {
@@ -107,43 +110,34 @@ class SimpleHandler {
 }
 
 class UserHandler(private val userRepository: UserRepository) {
-    fun findAll(request: ServerRequest) = handler { ok().body(userRepository.findAll()) }
+    fun findAll(request: ServerRequest) = ok().body(userRepository.findAll())
 
-    fun findById(request: ServerRequest) = handler {
-        userRepository
-                .findById(request.pathVariable("id"))
-                .flatMap { ok().syncBody(it) }
-    }
+    fun findById(request: ServerRequest) = userRepository
+            .findById(request.pathVariable("id"))
+            .flatMap { ok().syncBody(it) }
             .switchIfEmpty(notFound().build())
 
-    fun new(request: ServerRequest) = handler {
-        request
-                .bodyToMono<UserRequest>()
-                .map { User(login = it.login, age = it.age) }
-                .flatMap { userRepository.save(it) }
-                .flatMap { created(URI.create("/api/user/${it.id}")).syncBody(it) }
+    fun new(request: ServerRequest) = request
+            .bodyToMono<UserRequest>()
+            .map { User(login = it.login, age = it.age) }
+            .flatMap { userRepository.save(it) }
+            .flatMap { created(URI.create("/api/user/${it.id}")).syncBody(it) }
 
-    }
+    fun update(request: ServerRequest) = request
+            .bodyToMono<UserRequest>()
+            .zipWith(userRepository.findById(request.pathVariable("id")))
+            .map { User(it.t2.id, it.t1.login, it.t1.age) }
+            .flatMap { userRepository.save(it) }
+            .flatMap { ok().syncBody(it) }
+            .switchIfEmpty(notFound().build())
 
-    fun update(request: ServerRequest) = handler {
 
-        request
-                .bodyToMono<UserRequest>()
-                .zipWith(userRepository.findById(request.pathVariable("id")))
-                .map { User(it.t2.id, it.t1.login, it.t1.age) }
-                .flatMap { userRepository.save(it) }
-                .flatMap { ok().syncBody(it) }
-                .switchIfEmpty(notFound().build())
-    }
+    fun delete(request: ServerRequest) = userRepository
+            .findById(request.pathVariable("id"))
+            .flatMap { userRepository.delete(it).then(noContent().build()) }
+            .switchIfEmpty(notFound().build())
 
-    fun delete(request: ServerRequest) = handler {
-        userRepository
-                .findById(request.pathVariable("id"))
-                .flatMap { userRepository.delete(it).then(noContent().build()) }
-                .switchIfEmpty(notFound().build())
-    }
 }
-
 
 data class UserRequest(
         val login: String,
@@ -157,7 +151,6 @@ data class User(
 )
 
 class UserRepository(private val reactiveMongoTemplate: ReactiveMongoTemplate) {
-
 
     fun init() {
         reactiveMongoTemplate
