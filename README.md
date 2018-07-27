@@ -11,10 +11,10 @@ More info: [https://github.com/spring-projects/spring-fu](https://github.com/spr
 Server: [http://localhost:8080](http://localhost:8080)
 
 ```kotlin
-    GET("/", ref = simpleHandler::main)
-    GET("/hello", ref = simpleHandler::hello)
-    GET("/hello-event", ref = simpleHandler::helloEvent)
-    GET("/date", ref = simpleHandler::date)
+    GET("/", simpleHandler::main)
+    GET("/hello", simpleHandler::hello)
+    GET("/hello-event", simpleHandler::helloEvent)
+    GET("/date", simpleHandler::date)
 
     GET("/api/user", userHandler::findAll)
     POST("/api/user", userHandler::new)
